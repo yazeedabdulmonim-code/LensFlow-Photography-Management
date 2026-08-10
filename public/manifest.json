@@ -1,0 +1,16 @@
+{
+  "short_name": "LensFlow",
+  "name": "LensFlow - Photography Management",
+  "icons": [
+    {
+      "src": "/camera-logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#090d16",
+  "theme_color": "#0c8de9",
+  "display": "standalone",
+  "orientation": "portrait"
+}
