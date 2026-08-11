@@ -5,12 +5,12 @@ import {
   AlertTriangle, User, Play, Check, ChevronLeft, LayoutGrid, List
 } from 'lucide-react';
 
-export const TasksView = ({ onOpenTaskModal }) => {
+export const TasksView = ({ onOpenTaskModal, staffTarget }) => {
   const { tasks, team, updateTaskStatus, toggleChecklistItem } = useApp();
 
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
   const [searchQuery, setSearchQuery] = useState('');
-  const [assigneeFilter, setAssigneeFilter] = useState('All');
+  const [assigneeFilter, setAssigneeFilter] = useState(staffTarget ? staffTarget.id : 'All');
   const [priorityFilter, setPriorityFilter] = useState('All');
 
   const filteredTasks = tasks.filter(t => {
@@ -38,6 +38,13 @@ export const TasksView = ({ onOpenTaskModal }) => {
           </h1>
           <p className="text-xs text-slate-500">متابعة إنجاز الفريق، قوائم التجهيز الميداني، ومواعيد التسليم النهائة</p>
         </div>
+
+        {staffTarget && (
+          <div className="p-3 bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 text-brand-900 dark:text-brand-200 rounded-2xl text-xs font-bold flex items-center gap-2">
+            <User className="w-4 h-4 text-brand-500 shrink-0" />
+            <span>أهلاً بك يا <strong>{staffTarget.name}</strong> - تم توجيهك مباشرة برابط الإيميل لقائمة مهامك المكلف بها!</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           
