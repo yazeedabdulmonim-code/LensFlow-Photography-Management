@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Camera, Lock, Mail, ArrowLeft, AlertCircle, X, Check, ShieldAlert } from 'lucide-react';
+import { Camera, Lock, Mail, ArrowLeft, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export const LoginView = ({ onLoginSuccess }) => {
   const { team, setUserRole, setCurrentUserId, showToast } = useApp();
@@ -20,7 +20,6 @@ export const LoginView = ({ onLoginSuccess }) => {
     return team.find(m => {
       const memberEmail = (m.email || '').trim().toLowerCase();
       const memberPrefix = memberEmail.split('@')[0];
-      const memberName = (m.name || '').trim().toLowerCase();
       const memberId = (m.id || '').trim().toLowerCase();
 
       return (
