@@ -72,8 +72,8 @@ export const LoginView = ({ onLoginSuccess }) => {
       };
       
       // Strict password validation for admin
-      const requiredPass = masterUser.password || '123456';
-      if (!password || password !== requiredPass) {
+      const requiredPass = masterUser.password || 'admin';
+      if (!password || String(password).trim() !== String(requiredPass).trim()) {
         setErrorMessage('كلمة المرور غير صحيحة، يرجى التأكد من الرمز الخاص بحسابك');
         return;
       }
@@ -88,7 +88,7 @@ export const LoginView = ({ onLoginSuccess }) => {
     if (matchedMember) {
       // Validate password strictly
       const requiredPass = matchedMember.password || '123456';
-      if (!password || password !== requiredPass) {
+      if (!password || String(password).trim() !== String(requiredPass).trim()) {
         setErrorMessage('كلمة المرور غير صحيحة، يرجى التأكد من الرمز الخاص بحسابك');
         return;
       }
