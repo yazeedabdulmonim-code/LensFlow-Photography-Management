@@ -1,9 +1,8 @@
 // Cloud Sync Service using a secure public Key-Value Store for Real-Time Multi-Device Synchronization
 // fallbacks gracefully to localStorage if offline or if the service is unavailable.
 
-const BUCKET_ID = 'td_ahed_lensflow_prod_98723491823';
-const TEAM_KEY = 'team';
-const CLOUD_URL = `https://kvdb.io/${BUCKET_ID}/${TEAM_KEY}`;
+const BLOB_ID = '019fef62-04c9-76e0-a76d-da0bbb6af325';
+const CLOUD_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
 
 // Load team data from cloud
 export const fetchTeamFromCloud = async () => {
@@ -33,9 +32,10 @@ export const saveTeamToCloud = async (teamData) => {
   
   try {
     const response = await fetch(CLOUD_URL, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(teamData)
     });
