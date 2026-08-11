@@ -1,9 +1,17 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Bell, CheckCircle2, Clock, CalendarCheck, ShieldAlert, Camera, Receipt } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, CalendarCheck, ShieldAlert, Camera, Receipt, Calendar, Sparkles } from 'lucide-react';
 
-export const NotificationsView = () => {
-  const { notifications, markNotificationRead } = useApp();
+export const NotificationsView = ({ onNavigateToCalendar }) => {
+  const { notifications, markNotificationRead, triggerDateHighlight } = useApp();
+
+  const handleNotifClick = (n) => {
+    markNotificationRead(n.id);
+    triggerDateHighlight(n.targetDate);
+    if (onNavigateToCalendar) {
+      onNavigateToCalendar();
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -13,7 +21,7 @@ export const NotificationsView = () => {
             <Bell className="w-6 h-6 text-brand-500" />
             مركز الإشعارات والتنبيهات (Notifications)
           </h1>
-          <p className="text-xs text-slate-500">متابعة تنبيهات الحجوزات، تعارض المعدات، والمستحقات المالية</p>
+          <p className="text-xs text-slate-500">اضغط على أي إشعار للانتقال المباشر للتقويم والتأشير على اليوم لثانيتين 🎯</p>
         </div>
 
         <button 
@@ -31,11 +39,11 @@ export const NotificationsView = () => {
           notifications.map(n => (
             <div 
               key={n.id}
-              onClick={() => markNotificationRead(n.id)}
+              onClick={() => handleNotifClick(n)}
               className={`p-4 flex items-start gap-3 cursor-pointer transition ${!n.read ? 'bg-brand-50/40 dark:bg-brand-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
             >
-              <div className="p-2 rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 mt-0.5">
-                <Bell className="w-4 h-4" />
+              <div className="p-2 rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 mt-0.5 shrink-0">
+                <Calendar className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center">
@@ -43,6 +51,10 @@ export const NotificationsView = () => {
                   <span className="text-[10px] text-slate-400">{n.timestamp}</span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{n.message}</p>
+                <div className="text-[10px] font-bold text-amber-500 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  <span>انتقال وتأشير اليوم المحدد على التقويم لمدة ثانيتين 🎯</span>
+                </div>
               </div>
             </div>
           ))
