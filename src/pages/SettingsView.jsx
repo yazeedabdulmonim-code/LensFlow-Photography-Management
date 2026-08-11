@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Settings, Save, RotateCcw, Shield, Building, Percent, DollarSign, Mail, Send, CheckCircle2, Sparkles, User } from 'lucide-react';
+import { Settings, Save, RotateCcw, Shield, Building, Percent, DollarSign, Mail, Send, Sparkles } from 'lucide-react';
 
 export const SettingsView = () => {
-  const { studio, setStudio, team, emailLogs, sendEmailToStaff, resetToSeedData, showToast } = useApp();
+  const { studio, setStudio, team, emailLogs, sendEmailToStaff, showToast } = useApp();
 
   const [formData, setFormData] = useState({ ...studio });
   const [autoEmailEnabled, setAutoEmailEnabled] = useState(true);
