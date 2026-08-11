@@ -15,6 +15,7 @@ export const AppProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(() => localStorage.getItem('lensflow_role') || 'Admin');
   
   // Data Collections with LocalStorage fallback
+  const [isCloudLoaded, setIsCloudLoaded] = useState(false);
   const [studio, setStudio] = useState(() => {
     const saved = localStorage.getItem('lensflow_studio');
     return saved ? JSON.parse(saved) : initialSeedData.studio;
@@ -120,11 +121,13 @@ export const AppProvider = ({ children }) => {
         // Seed cloud if empty or fails
         await saveTeamToCloud(team);
       }
+      setIsCloudLoaded(true);
     };
     initCloudSync();
   }, []);
 
   useEffect(() => {
+    if (!isCloudLoaded) return; // Prevent overwriting cloud with initial state
     localStorage.setItem('lensflow_team', JSON.stringify(team));
     saveTeamToCloud(team); // Persist live update to Cloud
     if (typeof window !== 'undefined' && window.BroadcastChannel) {
