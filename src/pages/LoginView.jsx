@@ -10,11 +10,6 @@ export const LoginView = ({ onLoginSuccess }) => {
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [directLinkNotice, setDirectLinkNotice] = useState('');
-  
-  // Google Gmail Modal state
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [gmailInput, setGmailInput] = useState('');
-  const [gmailError, setGmailError] = useState('');
 
   // Smart flexible member matcher against approved team array only
   const findMatchingMember = (inputStr) => {
@@ -47,11 +42,7 @@ export const LoginView = ({ onLoginSuccess }) => {
       const matched = findMatchingMember(staffQuery);
 
       if (matched) {
-        const matchingGmail = matched.email.includes('@gmail.com') 
-          ? matched.email 
-          : `${matched.email.split('@')[0]}@gmail.com`;
         setEmail(matched.email);
-        setGmailInput(matchingGmail);
         setDirectLinkNotice(`👋 أهلاً بك يا ${matched.name} (${matched.role})، يرجى تأكيد الدخول ببريدك المعتمد بالمنظومة.`);
       }
     }
@@ -79,6 +70,14 @@ export const LoginView = ({ onLoginSuccess }) => {
         specialty: 'المسؤول العام عن الموقع ومدير النظام 👑',
         avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
       };
+      
+      // Strict password validation for admin
+      const requiredPass = masterUser.password || '123456';
+      if (!password || password !== requiredPass) {
+        setErrorMessage('كلمة المرور غير صحيحة، يرجى التأكد من الرمز الخاص بحسابك');
+        return;
+      }
+
       setUserRole('Admin');
       setCurrentUserId(masterUser.id);
       showToast(`👑 تم تسجيل الدخول بنجاح كـ ${masterUser.name} (المسؤول العام)`);
@@ -89,7 +88,7 @@ export const LoginView = ({ onLoginSuccess }) => {
     if (matchedMember) {
       // Validate password strictly
       const requiredPass = matchedMember.password || '123456';
-      if (password && password !== requiredPass) {
+      if (!password || password !== requiredPass) {
         setErrorMessage('كلمة المرور غير صحيحة، يرجى التأكد من الرمز الخاص بحسابك');
         return;
       }
@@ -104,57 +103,7 @@ export const LoginView = ({ onLoginSuccess }) => {
     }
   };
 
-  // Pure Direct Gmail Sign-In (Whitelisted Accounts Only)
-  const handleGmailSignInSubmit = (targetEmail) => {
-    setGmailError('');
-    const inputToVerify = (targetEmail || gmailInput).trim().toLowerCase();
 
-    if (!inputToVerify) {
-      setGmailError('يرجى إدخال عنوان بريد Gmail الخاص بك');
-      return;
-    }
-
-    // Strict Gmail / Google account check
-    const isGmailAccount = inputToVerify.endsWith('@gmail.com') || 
-                           inputToVerify.endsWith('@lensflow.com') || 
-                           inputToVerify.endsWith('@team-ahed.com');
-
-    if (!isGmailAccount) {
-      setGmailError('عذراً، يجب تسجيل الدخول باستخدام بريد إلكتروني ينتهي بـ @gmail.com!');
-      return;
-    }
-
-    const isMasterAdminEmail = inputToVerify === 'ahdalamary@gmail.com';
-    const matchedMember = findMatchingMember(inputToVerify);
-
-    if (isMasterAdminEmail) {
-      setShowGoogleModal(false);
-      const masterUser = matchedMember || {
-        id: 'usr-admin-master',
-        name: 'أحلام العمري',
-        email: 'ahdalamary@gmail.com',
-        role: 'Admin',
-        specialty: 'المسؤول العام عن الموقع ومدير النظام 👑',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-      };
-      setUserRole('Admin');
-      setCurrentUserId(masterUser.id);
-      showToast(`👑 تم الدخول عبر حساب Gmail المسؤول العام (${inputToVerify}) بنجاح!`);
-      onLoginSuccess(masterUser);
-      return;
-    }
-
-    if (matchedMember) {
-      setShowGoogleModal(false);
-      setUserRole(matchedMember.role);
-      setCurrentUserId(matchedMember.id);
-      showToast(`🌐 تم الدخول عبر حساب Gmail المعتمد (${inputToVerify}) بنجاح كـ ${matchedMember.name}`);
-      onLoginSuccess(matchedMember);
-    } else {
-      // STRICT SECURITY BLOCK: UNAPPROVED GMAIL ACCOUNTS CANNOT SIGN IN
-      setGmailError('⛔ عذراً، بريد الجيميل هذا غير مضاف في قائمة الفريق المعتمدة ولا يملك صلاحية الدخول! يرجى طلب الموافقة والإذن من المسؤول العام (ahdalamary@gmail.com) أولاً.');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 relative overflow-hidden font-sans dir-rtl">
@@ -197,42 +146,7 @@ export const LoginView = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        {/* GOOGLE / GMAIL DIRECT SIGN IN BUTTON */}
-        <button
-          type="button"
-          onClick={() => {
-            setGmailError('');
-            setShowGoogleModal(true);
-          }}
-          className="w-full py-3.5 px-4 bg-white hover:bg-slate-100 text-slate-900 text-xs font-black rounded-xl shadow-lg transition flex items-center justify-center gap-3 border border-slate-200"
-        >
-          {/* Multicolored Google G Logo SVG */}
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
-          </svg>
-          <span>تسجيل الدخول المباشر عبر Gmail</span>
-        </button>
 
-        <div className="flex items-center my-4">
-          <div className="flex-1 border-t border-slate-800"></div>
-          <span className="px-3 text-[11px] text-slate-500 font-bold">أو الدخول يدويًا بالبريد المقبول</span>
-          <div className="flex-1 border-t border-slate-800"></div>
-        </div>
 
         {/* Standard Email / Password Form */}
         <form onSubmit={handleLogin} className="space-y-4 text-xs">
@@ -291,98 +205,7 @@ export const LoginView = ({ onLoginSuccess }) => {
 
       </div>
 
-      {/* PURE DIRECT GOOGLE / GMAIL LOGIN MODAL (WHITELISTED ONLY) */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in text-slate-900 dir-rtl">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden p-6 space-y-5 animate-scale-in text-right">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <svg className="w-6 h-6" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span className="font-bold text-sm text-slate-800">Google Accounts</span>
-              </div>
 
-              <button onClick={() => setShowGoogleModal(false)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div>
-              <h3 className="text-base font-black text-slate-900">تسجيل الدخول المباشر عبر Gmail</h3>
-              <p className="text-xs text-slate-500 mt-1">اختر أو أدخل بريد الجيميل الخاص بك المعين والمصرح له من قِبل المسؤول العام</p>
-            </div>
-
-            {gmailError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-bold leading-relaxed">
-                {gmailError}
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">أدخل بريد Gmail المعتمد *</label>
-                <input 
-                  type="email"
-                  value={gmailInput}
-                  onChange={(e) => setGmailInput(e.target.value)}
-                  placeholder="username@gmail.com"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono font-bold text-slate-800 focus:border-brand-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-[11px] font-bold text-slate-400">أو اختر من قائمة الحسابات المصرح لها بالدخول:</div>
-                {team.map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => handleGmailSignInSubmit(m.email.includes('@gmail.com') ? m.email : `${m.email.split('@')[0]}@gmail.com`)}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-right transition"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img src={m.avatar} alt={m.name} className="w-6 h-6 rounded-full object-cover" />
-                      <div>
-                        <div className="font-bold text-slate-800 flex items-center gap-1">
-                          <span>{m.name}</span>
-                          {m.email === 'ahdalamary@gmail.com' && <span className="text-[10px]">👑</span>}
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono">{m.email}</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-50 text-brand-600">{m.role}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowGoogleModal(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl"
-              >
-                إلغاء
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleGmailSignInSubmit()}
-                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
-              >
-                <Check className="w-4 h-4" />
-                <span>دخول مباشر عبر Gmail</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );
