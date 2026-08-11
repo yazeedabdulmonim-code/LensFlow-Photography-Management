@@ -1,14 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  Calendar, CheckCircle2, Briefcase, Wallet, ArrowUpRight, ArrowDownRight,
-  Users, Camera, ChevronLeft, Check, Plus, Layers, Package, Clock, MapPin
+  Calendar, CheckCircle2, Briefcase, Wallet, ArrowUpRight
 } from 'lucide-react';
 
 export const DashboardView = ({ setActiveTab, onOpenBookingModal, onOpenTaskModal }) => {
-  const { userRole, currentUser, team, bookings, projects, tasks, equipment, invoices, clients, updateTaskStatus } = useApp();
+  const { userRole, currentUser, team, bookings, projects, tasks, invoices } = useApp();
 
-  const todayStr = '2026-05-11';
   const formattedTodayDate = '11 مايو 2026';
 
   // Calculated Stats
