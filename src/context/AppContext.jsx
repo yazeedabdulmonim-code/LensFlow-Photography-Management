@@ -67,7 +67,7 @@ export const AppProvider = ({ children }) => {
   });
 
   const [clientRequests, setClientRequests] = useState(() => {
-    const saved = localStorage.getItem('lensflow_client_requests');
+    const saved = localStorage.getItem('lensflow_clientRequests');
     return saved ? JSON.parse(saved) : initialSeedData.clientRequests;
   });
 
