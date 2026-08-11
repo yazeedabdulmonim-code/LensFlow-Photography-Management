@@ -4,8 +4,8 @@
 const BLOB_ID = '019fef62-04c9-76e0-a76d-da0bbb6af325';
 const CLOUD_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
 
-// Load team data from cloud
-export const fetchTeamFromCloud = async () => {
+// Load app state from cloud
+export const fetchAppFromCloud = async () => {
   try {
     const response = await fetch(CLOUD_URL, {
       method: 'GET',
@@ -16,7 +16,12 @@ export const fetchTeamFromCloud = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (data) {
+        // Migration: If data is an array, it's the old team-only structure
+        if (Array.isArray(data)) {
+          return { team: data };
+        }
+        // Otherwise, it's the full app state object
         return data;
       }
     }
@@ -26,9 +31,9 @@ export const fetchTeamFromCloud = async () => {
   return null;
 };
 
-// Save team data to cloud
-export const saveTeamToCloud = async (teamData) => {
-  if (!Array.isArray(teamData) || teamData.length === 0) return false;
+// Save app state to cloud
+export const saveAppToCloud = async (appData) => {
+  if (!appData) return false;
   
   try {
     const response = await fetch(CLOUD_URL, {
@@ -37,7 +42,7 @@ export const saveTeamToCloud = async (teamData) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(teamData)
+      body: JSON.stringify(appData)
     });
     
     return response.ok;
