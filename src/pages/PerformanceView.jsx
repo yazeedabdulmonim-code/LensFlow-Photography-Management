@@ -87,11 +87,8 @@ export const PerformanceView = () => {
                   <div className="font-bold text-slate-800 dark:text-slate-200">{memberTasks.length} مهمة</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-400">التقييم التشغيلي</div>
-                  <div className="font-bold text-amber-500 flex items-center justify-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" />
-                    <span>{member.rating}</span>
-                  </div>
+                  <div className="text-[10px] text-slate-400">ساعات العمل</div>
+                  <div className="font-bold text-emerald-600 dark:text-emerald-400">{member.hoursWorked}h</div>
                 </div>
               </div>
 
