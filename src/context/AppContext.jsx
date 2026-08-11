@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { initialSeedData } from '../data/seedData';
 import confetti from 'canvas-confetti';
+import { sendWhatsAppNotification } from '../services/whatsappService';
+import { fetchTeamFromCloud, saveTeamToCloud } from '../services/cloudSyncService';
 
 const AppContext = createContext();
 
@@ -107,20 +109,160 @@ export const AppProvider = ({ children }) => {
 
   // Persist State Changes
   useEffect(() => localStorage.setItem('lensflow_studio', JSON.stringify(studio)), [studio]);
-  useEffect(() => localStorage.setItem('lensflow_team', JSON.stringify(team)), [team]);
+  // Initial Cloud Sync Mount
+  useEffect(() => {
+    const initCloudSync = async () => {
+      const cloudTeam = await fetchTeamFromCloud();
+      if (cloudTeam && Array.isArray(cloudTeam) && cloudTeam.length > 0) {
+        setTeam(cloudTeam);
+        localStorage.setItem('lensflow_team', JSON.stringify(cloudTeam));
+      } else {
+        // Seed cloud if empty or fails
+        await saveTeamToCloud(team);
+      }
+    };
+    initCloudSync();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('lensflow_team', JSON.stringify(team));
+    saveTeamToCloud(team); // Persist live update to Cloud
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      try {
+        const bc = new BroadcastChannel('lensflow_live_sync_channel');
+        bc.postMessage({ type: 'team_updated', timestamp: Date.now() });
+        bc.close();
+      } catch (err) {}
+    }
+  }, [team]);
+
+  useEffect(() => {
+    localStorage.setItem('lensflow_tasks', JSON.stringify(tasks));
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      try {
+        const bc = new BroadcastChannel('lensflow_live_sync_channel');
+        bc.postMessage({ type: 'tasks_updated', timestamp: Date.now() });
+        bc.close();
+      } catch (err) {}
+    }
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('lensflow_bookings', JSON.stringify(bookings));
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      try {
+        const bc = new BroadcastChannel('lensflow_live_sync_channel');
+        bc.postMessage({ type: 'bookings_updated', timestamp: Date.now() });
+        bc.close();
+      } catch (err) {}
+    }
+  }, [bookings]);
+
+  useEffect(() => {
+    localStorage.setItem('lensflow_projects', JSON.stringify(projects));
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      try {
+        const bc = new BroadcastChannel('lensflow_live_sync_channel');
+        bc.postMessage({ type: 'projects_updated', timestamp: Date.now() });
+        bc.close();
+      } catch (err) {}
+    }
+  }, [projects]);
+
   useEffect(() => localStorage.setItem('lensflow_companies', JSON.stringify(companies)), [companies]);
   useEffect(() => localStorage.setItem('lensflow_clients', JSON.stringify(clients)), [clients]);
-  useEffect(() => localStorage.setItem('lensflow_bookings', JSON.stringify(bookings)), [bookings]);
-  useEffect(() => localStorage.setItem('lensflow_projects', JSON.stringify(projects)), [projects]);
-  useEffect(() => localStorage.setItem('lensflow_tasks', JSON.stringify(tasks)), [tasks]);
   useEffect(() => localStorage.setItem('lensflow_equipment', JSON.stringify(equipment)), [equipment]);
   useEffect(() => localStorage.setItem('lensflow_invoices', JSON.stringify(invoices)), [invoices]);
   useEffect(() => localStorage.setItem('lensflow_payments', JSON.stringify(payments)), [payments]);
   useEffect(() => localStorage.setItem('lensflow_client_requests', JSON.stringify(clientRequests)), [clientRequests]);
   useEffect(() => localStorage.setItem('lensflow_notifications', JSON.stringify(notifications)), [notifications]);
 
-  // Currently logged in member based on active role
-  const currentUser = team.find(m => m.role === userRole) || team[0];
+  // LIGHTNING-FAST INSTANT LIVE REAL-TIME SYNC ENGINE (BroadcastChannel + Storage + Cloud Sync Heartbeat)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncAllStatesFromStorage = () => {
+      try {
+        const sTeam = localStorage.getItem('lensflow_team');
+        if (sTeam) setTeam(prev => JSON.stringify(prev) !== sTeam ? JSON.parse(sTeam) : prev);
+
+        const sTasks = localStorage.getItem('lensflow_tasks');
+        if (sTasks) setTasks(prev => JSON.stringify(prev) !== sTasks ? JSON.parse(sTasks) : prev);
+
+        const sBookings = localStorage.getItem('lensflow_bookings');
+        if (sBookings) setBookings(prev => JSON.stringify(prev) !== sBookings ? JSON.parse(sBookings) : prev);
+
+        const sProjects = localStorage.getItem('lensflow_projects');
+        if (sProjects) setProjects(prev => JSON.stringify(prev) !== sProjects ? JSON.parse(sProjects) : prev);
+
+        const sEquipment = localStorage.getItem('lensflow_equipment');
+        if (sEquipment) setEquipment(prev => JSON.stringify(prev) !== sEquipment ? JSON.parse(sEquipment) : prev);
+
+        const sCompanies = localStorage.getItem('lensflow_companies');
+        if (sCompanies) setCompanies(prev => JSON.stringify(prev) !== sCompanies ? JSON.parse(sCompanies) : prev);
+
+        const sInvoices = localStorage.getItem('lensflow_invoices');
+        if (sInvoices) setInvoices(prev => JSON.stringify(prev) !== sInvoices ? JSON.parse(sInvoices) : prev);
+      } catch (err) {
+        console.error('Error during live sync execution:', err);
+      }
+    };
+
+    const syncCloudTeam = async () => {
+      try {
+        const cloudTeam = await fetchTeamFromCloud();
+        if (cloudTeam && Array.isArray(cloudTeam) && cloudTeam.length > 0) {
+          const localTeamStr = localStorage.getItem('lensflow_team');
+          const cloudTeamStr = JSON.stringify(cloudTeam);
+          if (localTeamStr !== cloudTeamStr) {
+            setTeam(cloudTeam);
+            localStorage.setItem('lensflow_team', cloudTeamStr);
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
+      } catch (err) {
+        console.warn('Silent cloud sync update check failed:', err);
+      }
+    };
+
+    // 1. Storage Event Listener
+    const handleStorageUpdate = (e) => {
+      syncAllStatesFromStorage();
+    };
+    window.addEventListener('storage', handleStorageUpdate);
+
+    // 2. BroadcastChannel Live Listener
+    let bc = null;
+    if (window.BroadcastChannel) {
+      try {
+        bc = new BroadcastChannel('lensflow_live_sync_channel');
+        bc.onmessage = () => syncAllStatesFromStorage();
+      } catch (err) {}
+    }
+
+    // 3. Fast 1.5s Background Heartbeat Pulse for Tabs, and 3s Cloud Poll
+    const localIntervalId = setInterval(syncAllStatesFromStorage, 1500);
+    const cloudIntervalId = setInterval(syncCloudTeam, 3000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      if (bc) bc.close();
+      clearInterval(localIntervalId);
+      clearInterval(cloudIntervalId);
+    };
+  }, []);
+
+  // Current User ID State
+  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem('lensflow_current_user_id') || '');
+
+  useEffect(() => {
+    if (currentUserId) {
+      localStorage.setItem('lensflow_current_user_id', currentUserId);
+    }
+  }, [currentUserId]);
+
+  // Currently logged in member based on currentUserId or active role
+  const currentUser = team.find(m => m.id === currentUserId) || team.find(m => m.role === userRole) || team[0];
 
   // Helper: Clash Detection
   const checkClash = (memberIds = [], equipmentIds = [], date, startTime, endTime, excludeBookingId = null) => {
@@ -188,14 +330,48 @@ export const AppProvider = ({ children }) => {
       }));
     }
 
-    // Add Audit Notification
+    // Send Email & WhatsApp notification to all assigned team members for this booking
+    if (newBooking.assignedTeamIds && newBooking.assignedTeamIds.length > 0) {
+      newBooking.assignedTeamIds.forEach(memberId => {
+        const teamMember = team.find(t => t.id === memberId);
+        if (teamMember) {
+          // 1. Email Notification
+          sendEmailToStaff({
+            toEmail: teamMember.email,
+            toName: teamMember.name,
+            subject: `حجز تصوير جديد مخصص لك: ${newBooking.serviceName}`,
+            body: `مرحباً ${teamMember.name}، تم إسناد حجز تصوير (${newBooking.serviceName}) لك في موقع (${newBooking.location}) بتاريخ ${newBooking.date} الساعة ${newBooking.startTime}.`,
+            type: 'booking',
+          });
+
+          // 2. WhatsApp Notification Link & Trigger
+          const waResult = sendWhatsAppNotification({
+            phone: teamMember.phone,
+            name: teamMember.name,
+            serviceName: newBooking.serviceName,
+            clientName: newBooking.clientName,
+            date: newBooking.date,
+            time: `${newBooking.startTime} - ${newBooking.endTime}`,
+            location: newBooking.location,
+          });
+
+          // Open WhatsApp web window in background if on desktop
+          if (typeof window !== 'undefined' && waResult.waUrl) {
+            window.open(waResult.waUrl, '_blank');
+          }
+        }
+      });
+    }
+
+    // Add Audit Notification with targetDate for calendar highlight
     addNotification({
       title: 'حجز جديد تم إنشاؤه',
       message: `تم إنشاء حجز جديد للعميل ${newBooking.clientName} بتاريخ ${newBooking.date}`,
       type: 'booking',
+      targetDate: newBooking.date,
     });
 
-    showToast('تم إنشاء الحجز بنجاح');
+    showToast(`📲 تم إرسال الإشعار، الإيميل، ورسالة الواتساب 💬 لكافة طاقم العمل بتاريخ (${newBooking.date})!`);
     return newBooking;
   };
 
@@ -360,6 +536,19 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  // Action: Add Company
+  const addCompany = (companyData) => {
+    const id = `cmp-${Date.now().toString().slice(-4)}`;
+    const newCompany = {
+      id,
+      logo: companyData.logo || 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=150&auto=format&fit=crop&q=80',
+      ...companyData,
+    };
+    setCompanies(prev => [newCompany, ...prev]);
+    showToast(`تمت إضافة الشركة (${newCompany.name}) بنجاح إلى سجل الشركات!`);
+    return newCompany;
+  };
+
   // Action: Toggle Checklist Item
   const toggleChecklistItem = (taskId, itemId) => {
     setTasks(prev => prev.map(t => {
@@ -385,14 +574,26 @@ export const AppProvider = ({ children }) => {
     };
     setTasks(prev => [newTask, ...prev]);
 
-    // Send notification to assignee
+    // Send notification & Email to assignee
+    const assigneeMember = team.find(t => t.id === newTask.assigneeId);
+    if (assigneeMember) {
+      sendEmailToStaff({
+        toEmail: assigneeMember.email,
+        toName: assigneeMember.name,
+        subject: `مهمة جديدة مُسندة إليك: ${newTask.title}`,
+        body: `مرحباً ${assigneeMember.name}، تم إسناد المهمة (${newTask.title}) لك بموعد تسليم ${newTask.dueDate || 'قريباً'}.`,
+        type: 'task',
+      });
+    }
+
     addNotification({
       title: 'مهمة جديدة مُسندة إليك',
-      message: `تم تعيين المهمة "${newTask.title}" لصالح العميل ${newTask.clientName || ''}`,
+      message: `تم تعيين المهمة "${newTask.title}" للموظف ${assigneeMember?.name || ''}`,
       type: 'task',
+      targetDate: newTask.dueDate || '2026-08-15',
     });
 
-    showToast('تم إضافة المهمة بنجاح');
+    showToast('تم إضافة المهمة وإرسال إشعار بريدي للموظف بنجاح');
   };
 
   // Action: Add Equipment
@@ -588,6 +789,76 @@ export const AppProvider = ({ children }) => {
     setNotifications(prev => prev.map(n => n.id === ntfId ? { ...n, read: true } : n));
   };
 
+  // Email Dispatcher Logs State
+  const [emailLogs, setEmailLogs] = useState([
+    {
+      id: "eml-101",
+      toEmail: "m.otaibi@lensflow.com",
+      toName: "محمد العتيبي",
+      subject: "جلسة تصوير زفاف جديدة مسندة إليك",
+      body: "مرحباً محمد، تم إسناد حجز تصوير زفاف فندق الريتز لك بتاريخ 12 أغسطس.",
+      type: "booking",
+      status: "Delivered",
+      timestamp: "10:30 ص",
+      date: "2026-08-10"
+    },
+    {
+      id: "eml-102",
+      toEmail: "a.shehri@lensflow.com",
+      toName: "أحمد الشهري",
+      subject: "مهمة مونتاج جديدة: عقار مجمع النخيل",
+      body: "مرحباً أحمد، تم إضافة مهمة تعديل لقطات الـ HDR لك للبدء بالعمل.",
+      type: "task",
+      status: "Delivered",
+      timestamp: "11:15 ص",
+      date: "2026-08-10"
+    }
+  ]);
+
+  const sendEmailToStaff = ({ toEmail, toName, subject, body, type = 'general' }) => {
+    const newLog = {
+      id: `eml-${Date.now().toString().slice(-4)}`,
+      toEmail: toEmail || 'staff@lensflow.com',
+      toName: toName || 'عضو الفريق',
+      subject: subject || 'تنبيه من LensFlow',
+      body: body || 'تم إصدار إشعار جديد بحسابك.',
+      type,
+      status: 'Delivered',
+      timestamp: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setEmailLogs(prev => [newLog, ...prev]);
+    showToast(`📧 تم إرسال إشعار بريدي إلى البريد الإلكتروني (${toEmail || 'الموظف'})`);
+    return newLog;
+  };
+
+  // Highlighted Date for Notifications
+  const [highlightedDate, setHighlightedDate] = useState(null);
+
+  const triggerDateHighlight = (dateStr) => {
+    const target = dateStr || '2026-08-12';
+    setHighlightedDate(target);
+    setTimeout(() => {
+      setHighlightedDate(null);
+    }, 2000);
+  };
+
+  // Action: Delete Team Member (Admin Only)
+  const deleteTeamMember = (memberId) => {
+    if (userRole !== 'Admin') {
+      showToast('⛔ عذراً، حظر وحذف أعضاء الفريق متاح حصرياً للمسؤول عن الموقع (Admin) فقط!', 'error');
+      return;
+    }
+    setTeam(prev => {
+      const updated = prev.filter(t => t.id !== memberId);
+      localStorage.setItem('lensflow_team', JSON.stringify(updated));
+      window.dispatchEvent(new Event('storage'));
+      return updated;
+    });
+    showToast('تم حذف العضو من الفريق بنجاح');
+  };
+
   // Reset to Seed Data
   const resetToSeedData = () => {
     localStorage.clear();
@@ -614,6 +885,8 @@ export const AppProvider = ({ children }) => {
       setTheme,
       userRole,
       setUserRole,
+      currentUserId,
+      setCurrentUserId,
       currentUser,
       studio,
       setStudio,
@@ -621,6 +894,7 @@ export const AppProvider = ({ children }) => {
       setTeam,
       companies,
       setCompanies,
+      addCompany,
       clients,
       setClients,
       bookings,
@@ -653,6 +927,11 @@ export const AppProvider = ({ children }) => {
       addClientRequest,
       approveClientRequest,
       markNotificationRead,
+      emailLogs,
+      sendEmailToStaff,
+      highlightedDate,
+      triggerDateHighlight,
+      deleteTeamMember,
       resetToSeedData,
     }}>
       {children}
