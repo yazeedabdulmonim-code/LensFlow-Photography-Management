@@ -135,7 +135,9 @@ export const AppProvider = ({ children }) => {
         const bc = new BroadcastChannel('lensflow_live_sync_channel');
         bc.postMessage({ type: 'team_updated', timestamp: Date.now() });
         bc.close();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Broadcast channel error:', err);
+      }
     }
   }, [team]);
 
@@ -146,7 +148,9 @@ export const AppProvider = ({ children }) => {
         const bc = new BroadcastChannel('lensflow_live_sync_channel');
         bc.postMessage({ type: 'tasks_updated', timestamp: Date.now() });
         bc.close();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Broadcast channel error:', err);
+      }
     }
   }, [tasks]);
 
@@ -157,7 +161,9 @@ export const AppProvider = ({ children }) => {
         const bc = new BroadcastChannel('lensflow_live_sync_channel');
         bc.postMessage({ type: 'bookings_updated', timestamp: Date.now() });
         bc.close();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Broadcast channel error:', err);
+      }
     }
   }, [bookings]);
 
@@ -168,7 +174,9 @@ export const AppProvider = ({ children }) => {
         const bc = new BroadcastChannel('lensflow_live_sync_channel');
         bc.postMessage({ type: 'projects_updated', timestamp: Date.now() });
         bc.close();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Broadcast channel error:', err);
+      }
     }
   }, [projects]);
 
@@ -229,7 +237,7 @@ export const AppProvider = ({ children }) => {
     };
 
     // 1. Storage Event Listener
-    const handleStorageUpdate = (e) => {
+    const handleStorageUpdate = () => {
       syncAllStatesFromStorage();
     };
     window.addEventListener('storage', handleStorageUpdate);
@@ -240,7 +248,9 @@ export const AppProvider = ({ children }) => {
       try {
         bc = new BroadcastChannel('lensflow_live_sync_channel');
         bc.onmessage = () => syncAllStatesFromStorage();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Broadcast channel init error:', err);
+      }
     }
 
     // 3. Fast 1.5s Background Heartbeat Pulse for Tabs, and 3s Cloud Poll
@@ -749,7 +759,7 @@ export const AppProvider = ({ children }) => {
     }
 
     // Create Booking
-    const newBooking = addBooking({
+    addBooking({
       clientId: targetClient.id,
       clientName: targetClient.name,
       clientType: targetClient.type,
