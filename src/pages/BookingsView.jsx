@@ -1,81 +1,132 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  CalendarCheck, Plus, Search, Filter, MapPin, Users, Clock, 
-  CheckCircle2, ArrowUpRight, Briefcase, Eye, ChevronLeft, Calendar as CalendarIcon, ShieldAlert
+  Calendar as CalendarIcon, MapPin, User, Clock, Camera, Plus, 
+  Briefcase, CheckCircle2, ShieldAlert, Eye, MessageSquare, Send, Users, Phone
 } from 'lucide-react';
+import { sendWhatsAppNotification } from '../services/whatsappService';
 
-export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
-  const { bookings, convertBookingToProject, team, equipment, clients } = useApp();
+export const BookingsView = ({ onOpenBookingModal, onOpenWhatsAppModal, setActiveTab }) => {
+  const { bookings, team, convertBookingToProject, showToast, currentUser, userRole } = useApp();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [serviceFilter, setServiceFilter] = useState('All');
+  const [onlyMyBookings, setOnlyMyBookings] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
+  // Filter Bookings
   const filteredBookings = bookings.filter(b => {
-    const matchesSearch = b.clientName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          b.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          b.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = b.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          b.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          b.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || b.status === statusFilter;
     const matchesService = serviceFilter === 'All' || b.serviceType === serviceFilter;
-    return matchesSearch && matchesStatus && matchesService;
+    const matchesMyBookings = !onlyMyBookings || b.assignedTeamIds?.includes(currentUser?.id);
+
+    return matchesSearch && matchesStatus && matchesService && matchesMyBookings;
   });
 
+  const handleSendWhatsAppToTeam = (booking) => {
+    const assignedMembers = team.filter(t => booking.assignedTeamIds?.includes(t.id));
+    const targetMember = team.find(t => t.name.includes('يزيد')) || assignedMembers[0] || team[0];
+
+    if (targetMember && targetMember.phone) {
+      const waRes = sendWhatsAppNotification({
+        phone: targetMember.phone,
+        name: targetMember.name,
+        role: targetMember.role,
+        bookingId: booking.id,
+        serviceName: booking.serviceName,
+        clientName: booking.clientName,
+        date: booking.date,
+        time: `${booking.startTime} - ${booking.endTime}`,
+        location: booking.location,
+        notes: booking.notes,
+      });
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(waRes.messageText);
+      }
+
+      if (typeof window !== 'undefined' && waRes.apiUrl) {
+        window.open(waRes.apiUrl, '_blank');
+      }
+
+      showToast(`📲 تم تعبئة النص والمهام بالواتساب لـ (${targetMember.name}) تلقائياً! اضغط إرسال 💬`);
+    }
+
+    if (onOpenWhatsAppModal) {
+      onOpenWhatsAppModal(booking);
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in dir-rtl">
       
-      {/* Header Bar */}
+      {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <CalendarCheck className="w-6 h-6 text-brand-500" />
-            إدارة الحجوزات (Bookings)
+            <CalendarIcon className="w-6 h-6 text-brand-500" />
+            إدارة الحجوزات والمواعيد (Bookings & Schedule)
           </h1>
-          <p className="text-xs text-slate-500">إدارة كافة حجز الجلسات، المواقع، وأطقم العمل والمعدات</p>
+          <p className="text-xs text-slate-500">متابعة الحجوزات، المواعيد الميدانية، واستعراض طاقم العمل المشارك بالمهمة</p>
         </div>
 
-        <button
-          onClick={onOpenBookingModal}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-brand-500/20 transition flex items-center gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ حجز جديد</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Filter ONLY My Bookings Button */}
+          <button
+            onClick={() => setOnlyMyBookings(!onlyMyBookings)}
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition flex items-center gap-1.5 border ${
+              onlyMyBookings 
+                ? 'bg-brand-600 text-white border-brand-600 shadow-md' 
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>حجوزاتي المخصصة لي</span>
+          </button>
+
+          <button
+            onClick={onOpenBookingModal}
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-brand-500/20 transition flex items-center gap-2 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ إنشاء حجز جديد</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter & Search Toolbar */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+      {/* Filter & Search Controls */}
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
         
-        {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="بحث بالاسم، الخدمة، رقم الحجز..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-9 py-2 text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:border-brand-500"
+        <div className="w-full md:w-80">
+          <input
+            type="text"
+            placeholder="بحث بالعميل، اسم الخدمة، أو الموقع..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-brand-500 font-medium"
           />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          
-          <select 
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Status Filter */}
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-700 dark:text-slate-300 font-semibold"
           >
             <option value="All">جميع الحالات</option>
             <option value="Confirmed">مؤكد</option>
+            <option value="In Progress">قيد المشروع</option>
             <option value="Pending">معلق</option>
-            <option value="In Progress">قيد التنفيذ</option>
             <option value="Completed">مكتمل</option>
-            <option value="Cancelled">ملغى</option>
           </select>
 
-          <select 
+          {/* Service Filter */}
+          <select
             value={serviceFilter}
             onChange={(e) => setServiceFilter(e.target.value)}
             className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-700 dark:text-slate-300 font-semibold"
@@ -110,8 +161,6 @@ export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredBookings.map(booking => {
             const assignedMembers = team.filter(t => booking.assignedTeamIds?.includes(t.id));
-            const isConfirmed = booking.status === 'Confirmed';
-            const isInProgress = booking.status === 'In Progress';
 
             return (
               <div 
@@ -152,23 +201,35 @@ export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
                     </div>
                   </div>
 
-                  {/* Assigned Team Avatars */}
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="flex -space-x-2 space-x-reverse">
-                      {assignedMembers.map(m => (
-                        <img 
-                          key={m.id} 
-                          src={m.avatar} 
-                          alt={m.name} 
-                          title={`${m.name} (${m.role})`}
-                          className="w-7 h-7 rounded-full object-cover ring-2 ring-white dark:ring-slate-900" 
-                        />
-                      ))}
+                  {/* Co-assigned Team Members list for this booking */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 space-y-1.5">
+                    <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-brand-500" />
+                      <span>طاقم العمل المسند معي في هذه المهمة:</span>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xs font-black text-slate-900 dark:text-slate-100">{booking.totalPrice.toLocaleString()} ريال</div>
-                      <div className="text-[10px] text-slate-400 font-medium">{booking.paymentStatus}</div>
+                    <div className="space-y-1">
+                      {assignedMembers.map(m => (
+                        <div key={m.id} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <img src={m.avatar} alt={m.name} className="w-5 h-5 rounded-full object-cover" />
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{m.name}</span>
+                            <span className="text-[10px] text-brand-600 font-medium">({m.role})</span>
+                          </div>
+
+                          {m.phone && (
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${(m.phone || '').replace(/[^\d]/g, '').startsWith('05') ? '966' + (m.phone || '').replace(/[^\d]/g, '').slice(1) : (m.phone || '').replace(/[^\d]/g, '')}&text=${encodeURIComponent(`أهلاً ${m.name}، بخصوص حجز ${booking.serviceName} بتاريخ ${booking.date} ✨`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>مراسلة</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -177,6 +238,16 @@ export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
                 {/* Actions Footer */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex gap-2">
                   
+                  {/* Direct Auto-fill WhatsApp Trigger */}
+                  <button
+                    onClick={() => handleSendWhatsAppToTeam(booking)}
+                    className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
+                    title="تعبئة التكليف بالواتساب تلقائياً وإرساله"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>إرسال WhatsApp</span>
+                  </button>
+
                   {/* Convert to Project Button */}
                   {booking.status !== 'In Progress' && booking.status !== 'Completed' && (
                     <button
@@ -187,7 +258,7 @@ export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
                       className="flex-1 py-2 px-3 bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/60 dark:hover:bg-brand-900 text-brand-700 dark:text-brand-300 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1"
                     >
                       <Briefcase className="w-3.5 h-3.5" />
-                      <span>تحويل إلى مشروع</span>
+                      <span>مشروع</span>
                     </button>
                   )}
 
@@ -209,60 +280,49 @@ export const BookingsView = ({ onOpenBookingModal, setActiveTab }) => {
       {/* Booking Detail Modal Drawer */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden p-6 space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             
             <div className="flex justify-between items-start pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <span className="text-xs font-mono text-slate-400">{selectedBooking.id}</span>
-                <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">{selectedBooking.serviceName}</h2>
-                <div className="text-xs text-slate-500">العميل: {selectedBooking.clientName}</div>
+                <span className="text-[10px] font-mono text-slate-400 font-bold">{selectedBooking.id}</span>
+                <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-0.5">{selectedBooking.serviceName}</h3>
               </div>
-
-              <button onClick={() => setSelectedBooking(null)} className="p-2 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
+              <button onClick={() => setSelectedBooking(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <CalendarIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">الموعد والتوقيت:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedBooking.date} ({selectedBooking.startTime} - {selectedBooking.endTime})</span>
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
+                <div>العميل: <strong className="text-slate-900 dark:text-slate-100">{selectedBooking.clientName}</strong> ({selectedBooking.phone})</div>
+                <div>الموعد: <strong>{selectedBooking.date}</strong> من {selectedBooking.startTime} إلى {selectedBooking.endTime}</div>
+                <div>الموقع: <strong>{selectedBooking.location}</strong></div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">الموقع:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedBooking.location}</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">إجمالي السعر والعربون:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedBooking.totalPrice.toLocaleString()} ريال (عربون: {selectedBooking.depositPaid.toLocaleString()} ريال)</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">حالة الدفع:</span>
-                <span className="font-bold text-brand-600 dark:text-brand-400">{selectedBooking.paymentStatus}</span>
+              <div>
+                <div className="font-bold text-slate-800 dark:text-slate-200 mb-1">المصورين وطاقم العمل المخصصين:</div>
+                <div className="flex flex-wrap gap-2">
+                  {team.filter(t => selectedBooking.assignedTeamIds?.includes(t.id)).map(m => (
+                    <div key={m.id} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center gap-2">
+                      <img src={m.avatar} alt={m.name} className="w-6 h-6 rounded-full object-cover" />
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{m.name}</span>
+                      <span className="text-[10px] text-brand-600">({m.role})</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {selectedBooking.notes && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
-                <span className="font-bold block mb-1 text-slate-800 dark:text-slate-200">ملاحظات:</span>
-                {selectedBooking.notes}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <button
-                onClick={() => {
-                  convertBookingToProject(selectedBooking.id);
-                  setSelectedBooking(null);
-                  setActiveTab('projects');
-                }}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition"
+                onClick={() => handleSendWhatsAppToTeam(selectedBooking)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5"
               >
-                تحويل إلى مشروع مباشر
+                <MessageSquare className="w-4 h-4" />
+                <span>إرسال تفاصيل الحجز بالواتساب تلقائياً</span>
               </button>
+
+              <button onClick={() => setSelectedBooking(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-xs font-bold rounded-xl">إغلاق</button>
             </div>
 
           </div>
