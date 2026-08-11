@@ -110,6 +110,37 @@ export const AppProvider = ({ children }) => {
 
   // Persist State Changes
   useEffect(() => localStorage.setItem('lensflow_studio', JSON.stringify(studio)), [studio]);
+  // Helper to merge local and cloud states by ID to prevent data overwrites
+  const mergeLocalAndCloud = (key, cloudVal, defaultVal = []) => {
+    let localVal = defaultVal;
+    try {
+      const saved = localStorage.getItem(`lensflow_${key}`);
+      if (saved) localVal = JSON.parse(saved);
+    } catch (e) {
+      console.warn(`Error reading local state for merge: ${key}`, e);
+    }
+    
+    if (!Array.isArray(localVal)) return cloudVal || [];
+    if (!Array.isArray(cloudVal)) return localVal || [];
+    
+    const map = new Map();
+    localVal.forEach(item => {
+      if (item && item.id) map.set(item.id, item);
+    });
+    cloudVal.forEach(item => {
+      if (item && item.id) {
+        const existing = map.get(item.id);
+        if (existing) {
+          // Merge objects, let cloud state values override local ones for the same ID
+          map.set(item.id, { ...existing, ...item });
+        } else {
+          map.set(item.id, item);
+        }
+      }
+    });
+    return Array.from(map.values());
+  };
+
   // Helper to compile the entire app state for cloud sync
   const getFullAppState = () => ({
     studio, team, companies, clients, bookings, projects,
@@ -121,23 +152,55 @@ export const AppProvider = ({ children }) => {
     const initCloudSync = async () => {
       const cloudData = await fetchAppFromCloud();
       if (cloudData) {
-        if (cloudData.team) setTeam(cloudData.team);
-        if (cloudData.bookings) setBookings(cloudData.bookings);
-        if (cloudData.tasks) setTasks(cloudData.tasks);
-        if (cloudData.projects) setProjects(cloudData.projects);
-        if (cloudData.clients) setClients(cloudData.clients);
-        if (cloudData.equipment) setEquipment(cloudData.equipment);
-        if (cloudData.invoices) setInvoices(cloudData.invoices);
-        if (cloudData.companies) setCompanies(cloudData.companies);
-        if (cloudData.payments) setPayments(cloudData.payments);
-        if (cloudData.clientRequests) setClientRequests(cloudData.clientRequests);
-        if (cloudData.notifications) setNotifications(cloudData.notifications);
-        if (cloudData.studio) setStudio(cloudData.studio);
-        
-        // Also update local storage for all
-        Object.keys(cloudData).forEach(key => {
-          localStorage.setItem(`lensflow_${key}`, JSON.stringify(cloudData[key]));
-        });
+        // Merge each collection to protect local-only data
+        const mergedTeam = mergeLocalAndCloud('team', cloudData.team, initialSeedData.team);
+        setTeam(mergedTeam);
+        localStorage.setItem('lensflow_team', JSON.stringify(mergedTeam));
+
+        const mergedBookings = mergeLocalAndCloud('bookings', cloudData.bookings, initialSeedData.bookings);
+        setBookings(mergedBookings);
+        localStorage.setItem('lensflow_bookings', JSON.stringify(mergedBookings));
+
+        const mergedTasks = mergeLocalAndCloud('tasks', cloudData.tasks, initialSeedData.tasks);
+        setTasks(mergedTasks);
+        localStorage.setItem('lensflow_tasks', JSON.stringify(mergedTasks));
+
+        const mergedProjects = mergeLocalAndCloud('projects', cloudData.projects, initialSeedData.projects);
+        setProjects(mergedProjects);
+        localStorage.setItem('lensflow_projects', JSON.stringify(mergedProjects));
+
+        const mergedClients = mergeLocalAndCloud('clients', cloudData.clients, initialSeedData.clients);
+        setClients(mergedClients);
+        localStorage.setItem('lensflow_clients', JSON.stringify(mergedClients));
+
+        const mergedEquipment = mergeLocalAndCloud('equipment', cloudData.equipment, initialSeedData.equipment);
+        setEquipment(mergedEquipment);
+        localStorage.setItem('lensflow_equipment', JSON.stringify(mergedEquipment));
+
+        const mergedInvoices = mergeLocalAndCloud('invoices', cloudData.invoices, initialSeedData.invoices);
+        setInvoices(mergedInvoices);
+        localStorage.setItem('lensflow_invoices', JSON.stringify(mergedInvoices));
+
+        const mergedCompanies = mergeLocalAndCloud('companies', cloudData.companies, initialSeedData.companies);
+        setCompanies(mergedCompanies);
+        localStorage.setItem('lensflow_companies', JSON.stringify(mergedCompanies));
+
+        const mergedPayments = mergeLocalAndCloud('payments', cloudData.payments, initialSeedData.payments);
+        setPayments(mergedPayments);
+        localStorage.setItem('lensflow_payments', JSON.stringify(mergedPayments));
+
+        const mergedRequests = mergeLocalAndCloud('clientRequests', cloudData.clientRequests, initialSeedData.clientRequests);
+        setClientRequests(mergedRequests);
+        localStorage.setItem('lensflow_clientRequests', JSON.stringify(mergedRequests));
+
+        const mergedNotifications = mergeLocalAndCloud('notifications', cloudData.notifications, initialSeedData.notifications);
+        setNotifications(mergedNotifications);
+        localStorage.setItem('lensflow_notifications', JSON.stringify(mergedNotifications));
+
+        if (cloudData.studio) {
+          setStudio(cloudData.studio);
+          localStorage.setItem('lensflow_studio', JSON.stringify(cloudData.studio));
+        }
       } else {
         // Seed cloud if empty or fails
         await saveAppToCloud(getFullAppState());
@@ -181,8 +244,6 @@ export const AppProvider = ({ children }) => {
 
 
 
-
-
   // LIGHTNING-FAST INSTANT LIVE REAL-TIME SYNC ENGINE (BroadcastChannel + Storage + Cloud Sync Heartbeat)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -218,23 +279,26 @@ export const AppProvider = ({ children }) => {
       try {
         const cloudData = await fetchAppFromCloud();
         if (cloudData) {
-          if (cloudData.team && JSON.stringify(cloudData.team) !== localStorage.getItem('lensflow_team')) {
-            setTeam(cloudData.team);
-            localStorage.setItem('lensflow_team', JSON.stringify(cloudData.team));
-          }
           if (cloudData.bookings && JSON.stringify(cloudData.bookings) !== localStorage.getItem('lensflow_bookings')) {
-            setBookings(cloudData.bookings);
-            localStorage.setItem('lensflow_bookings', JSON.stringify(cloudData.bookings));
+            const merged = mergeLocalAndCloud('bookings', cloudData.bookings, initialSeedData.bookings);
+            setBookings(merged);
+            localStorage.setItem('lensflow_bookings', JSON.stringify(merged));
           }
           if (cloudData.tasks && JSON.stringify(cloudData.tasks) !== localStorage.getItem('lensflow_tasks')) {
-            setTasks(cloudData.tasks);
-            localStorage.setItem('lensflow_tasks', JSON.stringify(cloudData.tasks));
+            const merged = mergeLocalAndCloud('tasks', cloudData.tasks, initialSeedData.tasks);
+            setTasks(merged);
+            localStorage.setItem('lensflow_tasks', JSON.stringify(merged));
           }
           if (cloudData.projects && JSON.stringify(cloudData.projects) !== localStorage.getItem('lensflow_projects')) {
-            setProjects(cloudData.projects);
-            localStorage.setItem('lensflow_projects', JSON.stringify(cloudData.projects));
+            const merged = mergeLocalAndCloud('projects', cloudData.projects, initialSeedData.projects);
+            setProjects(merged);
+            localStorage.setItem('lensflow_projects', JSON.stringify(merged));
           }
-          // We can also sync other collections similarly, but these 4 are the most updated dynamically
+          if (cloudData.team && JSON.stringify(cloudData.team) !== localStorage.getItem('lensflow_team')) {
+            const merged = mergeLocalAndCloud('team', cloudData.team, initialSeedData.team);
+            setTeam(merged);
+            localStorage.setItem('lensflow_team', JSON.stringify(merged));
+          }
         }
       } catch (err) {
         console.warn('Silent cloud sync update check failed:', err);
