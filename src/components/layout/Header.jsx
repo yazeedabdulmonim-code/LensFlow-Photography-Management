@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Search, Bell, Sun, Moon, Globe, Shield, User, ExternalLink, 
-  X, Calendar, Briefcase, Camera, FileText, CheckCircle2, Building, Receipt
+  X, Calendar, Briefcase, Camera, FileText, CheckCircle2, Building, Receipt, LogOut
 } from 'lucide-react';
 
-export const Header = ({ onOpenMobileMenu, onOpenClientPortal }) => {
+export const Header = ({ onOpenMobileMenu, onOpenClientPortal, onOpenEditProfile, onLogout, onNavigateToCalendar }) => {
   const { 
     language, setLanguage, 
     theme, setTheme, 
     userRole, setUserRole, 
     currentUser, 
-    notifications, markNotificationRead,
+    notifications, markNotificationRead, triggerDateHighlight,
     clients, companies, bookings, projects, tasks, equipment, invoices
   } = useApp();
 
@@ -140,66 +140,14 @@ export const Header = ({ onOpenMobileMenu, onOpenClientPortal }) => {
         {/* Right Side (Actions & Switchers) */}
         <div className="flex items-center gap-2 sm:gap-3">
           
-          {/* Public Client Form Portal Button */}
+          {/* Public Portal Button */}
           <button 
             onClick={onOpenClientPortal}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 hover:bg-brand-100 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 rounded-xl transition"
-            title="معاينة نموذج طلب العميل لحساب التكلفة التقديرية"
+            className="px-3 py-1.5 text-xs font-bold bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/60 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-800 rounded-xl transition flex items-center gap-1.5"
+            title="فتح بوابة حجز العملاء العامة"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>رابط طلب للعميل</span>
-          </button>
-
-          {/* Role Simulator Switcher */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition"
-            >
-              <Shield className="w-3.5 h-3.5 text-brand-500" />
-              <span className="hidden md:inline">الصلاحية:</span>
-              <span className="text-brand-600 dark:text-brand-400 font-bold">{userRole}</span>
-            </button>
-
-            {showRoleDropdown && (
-              <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 animate-fade-in">
-                <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700">
-                  تبديل الصلاحية للتجربة
-                </div>
-                {['Admin', 'Manager', 'Photographer', 'Videographer', 'Editor', 'Accountant'].map(role => (
-                  <button
-                    key={role}
-                    onClick={() => {
-                      setUserRole(role);
-                      setShowRoleDropdown(false);
-                    }}
-                    className={`w-full text-right px-4 py-2 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/60 ${userRole === role ? 'font-bold text-brand-600 dark:text-brand-400 bg-brand-50/50 dark:bg-brand-950/30' : 'text-slate-700 dark:text-slate-300'}`}
-                  >
-                    <span>{role}</span>
-                    {userRole === role && <CheckCircle2 className="w-3.5 h-3.5 text-brand-500" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Language Switcher */}
-          <button 
-            onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1 text-xs font-bold"
-            title="تغيير اللغة"
-          >
-            <Globe className="w-4 h-4 text-slate-500" />
-            <span className="uppercase">{language === 'ar' ? 'EN' : 'عربي'}</span>
-          </button>
-
-          {/* Theme Toggle (Dark/Light) */}
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
-            title="تبديل الوضع الليلي"
-          >
-            {theme === 'dark' ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5 text-slate-600" />}
           </button>
 
           {/* Notification Center Dropdown */}
@@ -229,7 +177,12 @@ export const Header = ({ onOpenMobileMenu, onOpenClientPortal }) => {
                     notifications.map(n => (
                       <div 
                         key={n.id}
-                        onClick={() => markNotificationRead(n.id)}
+                        onClick={() => {
+                          markNotificationRead(n.id);
+                          triggerDateHighlight(n.targetDate);
+                          setShowNotifDropdown(false);
+                          if (onNavigateToCalendar) onNavigateToCalendar();
+                        }}
                         className={`p-3.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition ${!n.read ? 'bg-brand-50/40 dark:bg-brand-950/20' : ''}`}
                       >
                         <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200 mb-1">
@@ -246,7 +199,11 @@ export const Header = ({ onOpenMobileMenu, onOpenClientPortal }) => {
           </div>
 
           {/* User Profile Avatar */}
-          <div className="flex items-center gap-2 pl-1 border-r border-slate-200 dark:border-slate-800 mr-1 pr-1">
+          <div 
+            onClick={onOpenEditProfile}
+            className="flex items-center gap-2 pl-1 border-r border-slate-200 dark:border-slate-800 mr-1 pr-1 cursor-pointer hover:opacity-80 transition"
+            title="تعديل الملف الشخصي"
+          >
             <img 
               src={currentUser?.avatar} 
               alt={currentUser?.name}
@@ -257,6 +214,17 @@ export const Header = ({ onOpenMobileMenu, onOpenClientPortal }) => {
               <div className="text-[10px] text-slate-500">{currentUser?.specialty?.slice(0, 18)}</div>
             </div>
           </div>
+
+          {/* Logout / Login Screen Trigger */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition"
+              title="تسجيل الخروج والانتقال لصفحة تسجيل دخول الموظفين"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
 
         </div>
 
