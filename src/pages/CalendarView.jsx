@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Calendar as CalendarIcon, ChevronRight, ChevronLeft, Plus, Clock, MapPin, 
-  ShieldAlert, Eye, User, Camera, CheckCircle2
+  ShieldAlert, Eye, User, Camera, CheckCircle2, Sparkles
 } from 'lucide-react';
 
 export const CalendarView = ({ onOpenBookingModal }) => {
-  const { bookings, team, equipment, checkClash } = useApp();
+  const { bookings, team, equipment, checkClash, highlightedDate } = useApp();
 
   const [currentView, setCurrentView] = useState('Month'); // Month | Week | Day | Agenda
   const [selectedDate, setSelectedDate] = useState(new Date('2026-08-12'));
@@ -27,7 +27,7 @@ export const CalendarView = ({ onOpenBookingModal }) => {
 
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
-  const monthName = selectedDate.toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' });
+  const monthName = selectedDate.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
 
   // Generate Month Days Grid (35 cells)
   const firstDayOfMonth = new Date(year, month, 1).getDay();
@@ -91,6 +91,16 @@ export const CalendarView = ({ onOpenBookingModal }) => {
         </div>
       </div>
 
+      {/* Highlight Active Alert Banner */}
+      {highlightedDate && (
+        <div className="p-3 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-2xl shadow-lg flex items-center justify-between animate-bounce">
+          <div className="flex items-center gap-2 text-xs font-black">
+            <Sparkles className="w-4 h-4" />
+            <span>🎯 تم التأشير على اليوم المحدد في الإشعار ({highlightedDate}) لمدة ثانيتين!</span>
+          </div>
+        </div>
+      )}
+
       {/* Month Navigator Toolbar */}
       <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -138,12 +148,33 @@ export const CalendarView = ({ onOpenBookingModal }) => {
               const dateStr = dateObj.toISOString().split('T')[0];
               const dayBookings = bookings.filter(b => b.date === dateStr);
               const isToday = dateStr === new Date().toISOString().split('T')[0];
+              const isHighlighted = highlightedDate && dateStr === highlightedDate;
 
               return (
-                <div key={idx} className={`p-2 min-h-24 space-y-1.5 transition ${isToday ? 'bg-brand-50/30 dark:bg-brand-950/20' : ''}`}>
+                <div 
+                  key={idx} 
+                  className={`p-2 min-h-24 space-y-1.5 transition-all duration-300 relative ${
+                    isHighlighted 
+                      ? 'ring-4 ring-amber-500 bg-amber-400/25 dark:bg-amber-950/50 scale-105 shadow-2xl z-30 animate-pulse rounded-2xl' 
+                      : isToday 
+                        ? 'bg-brand-50/30 dark:bg-brand-950/20' 
+                        : ''
+                  }`}
+                >
+                  {isHighlighted && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow-lg z-40 whitespace-nowrap animate-bounce flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>🎯 اليوم المحدد في الإشعار</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${
-                      isToday ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300'
+                      isHighlighted
+                        ? 'bg-amber-500 text-white shadow-md animate-ping'
+                        : isToday 
+                          ? 'bg-brand-600 text-white shadow-sm' 
+                          : 'text-slate-700 dark:text-slate-300'
                     }`}>
                       {dateObj.getDate()}
                     </span>
@@ -180,15 +211,28 @@ export const CalendarView = ({ onOpenBookingModal }) => {
             {bookings.map(bk => {
               const clashes = checkClash(bk.assignedTeamIds, bk.requiredEquipmentIds, bk.date, bk.startTime, bk.endTime, bk.id);
               const hasClash = clashes.memberConflicts.length > 0 || clashes.equipmentConflicts.length > 0;
+              const isHighlighted = highlightedDate && bk.date === highlightedDate;
 
               return (
-                <div key={bk.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div 
+                  key={bk.id} 
+                  className={`p-4 rounded-2xl border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                    isHighlighted 
+                      ? 'bg-amber-400/20 border-amber-500 ring-4 ring-amber-500 shadow-xl animate-pulse' 
+                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${getEventBadgeStyle(bk.serviceType)}`}>
                         {bk.serviceType}
                       </span>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{bk.serviceName}</h4>
+                      {isHighlighted && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-white animate-bounce">
+                          🎯 اليوم المحدد بالإشعار
+                        </span>
+                      )}
                       {hasClash && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1">
                           <ShieldAlert className="w-3 h-3" />
@@ -199,15 +243,14 @@ export const CalendarView = ({ onOpenBookingModal }) => {
                     <div className="text-xs text-slate-500">العميل: {bk.clientName} | {bk.location}</div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right text-xs">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">{bk.date}</div>
-                      <div className="text-slate-400">{bk.startTime} - {bk.endTime}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                      <div>{bk.date}</div>
+                      <div className="text-[10px] text-slate-400">{bk.startTime} - {bk.endTime}</div>
                     </div>
-
-                    <button
+                    <button 
                       onClick={() => setActiveBookingModal(bk)}
-                      className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition"
+                      className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-xs font-bold rounded-xl transition"
                     >
                       التفاصيل
                     </button>
@@ -219,7 +262,7 @@ export const CalendarView = ({ onOpenBookingModal }) => {
         </div>
       )}
 
-      {/* Booking Quick Detail Drawer Modal */}
+      {/* Booking Detail Modal Drawer */}
       {activeBookingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden p-6 space-y-4">
@@ -230,38 +273,29 @@ export const CalendarView = ({ onOpenBookingModal }) => {
                   {activeBookingModal.serviceType}
                 </span>
                 <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-1">{activeBookingModal.serviceName}</h3>
-                <div className="text-xs text-slate-500">العميل: {activeBookingModal.clientName}</div>
               </div>
-
               <button onClick={() => setActiveBookingModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
                 <ChevronLeft className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-              <div className="flex items-center gap-2">
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                 <Clock className="w-4 h-4 text-brand-500" />
-                <span>التاريخ: <strong>{activeBookingModal.date}</strong> (من {activeBookingModal.startTime} إلى {activeBookingModal.endTime})</span>
+                <span>الموعد: <strong>{activeBookingModal.date}</strong> من {activeBookingModal.startTime} إلى {activeBookingModal.endTime}</span>
               </div>
-
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-red-500" />
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-brand-500" />
                 <span>الموقع: <strong>{activeBookingModal.location}</strong></span>
               </div>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 flex justify-between items-center text-xs">
-              <span>الإجمالي: <strong className="text-brand-600 dark:text-brand-400">{activeBookingModal.totalPrice.toLocaleString()} ريال</strong></span>
-              <span>حالة الدفع: <strong>{activeBookingModal.paymentStatus}</strong></span>
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                <User className="w-4 h-4 text-brand-500" />
+                <span>العميل: <strong>{activeBookingModal.clientName}</strong> ({activeBookingModal.phone})</span>
+              </div>
             </div>
 
             <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setActiveBookingModal(null)}
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl"
-              >
-                إغلاق
-              </button>
+              <button onClick={() => setActiveBookingModal(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-xs font-bold rounded-xl">إغلاق</button>
             </div>
 
           </div>
