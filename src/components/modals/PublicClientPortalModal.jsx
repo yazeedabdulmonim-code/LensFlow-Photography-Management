@@ -31,30 +31,6 @@ export const PublicClientPortalModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  // Real-time Automated Cost Estimator (Quotation Calculator)
-  const calculateEstimatedCost = () => {
-    let basePrice = 2000;
-    
-    // Shoot type base
-    if (formData.shootType === 'Wedding') basePrice += 3500;
-    else if (formData.shootType === 'Commercial' || formData.shootType === 'Conference') basePrice += 3000;
-    else if (formData.shootType === 'Real Estate') basePrice += 2000;
-
-    // Hours multiplier
-    basePrice += (formData.hoursCount - 2) * 400;
-
-    // Photographers & Videographers
-    basePrice += (formData.photographersCount - 1) * 1200;
-    basePrice += formData.videographersCount * 1500;
-
-    // Addons
-    if (formData.hasDrone) basePrice += 1500;
-    if (formData.hasColorCorrection) basePrice += 800;
-
-    return Math.max(1500, basePrice);
-  };
-
-  const estimatedCost = calculateEstimatedCost();
 
   const handleToggleService = (service) => {
     setFormData(prev => {
@@ -71,7 +47,7 @@ export const PublicClientPortalModal = ({ isOpen, onClose }) => {
 
     const req = addClientRequest({
       ...formData,
-      estimatedCost,
+      estimatedCost: 0,
     });
 
     setCreatedQuotation(req);
@@ -125,29 +101,8 @@ export const PublicClientPortalModal = ({ isOpen, onClose }) => {
 
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">تم استلام طلب الحجز بنجاح!</h3>
-              <p className="text-xs text-slate-500 mt-1">رقم الطلب التقديري: <span className="font-mono font-bold text-brand-600">{createdQuotation?.id}</span></p>
-            </div>
-
-            {/* Calculated Quotation Summary Box */}
-            <div className="p-5 max-w-md mx-auto rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-right space-y-3">
-              <div className="text-xs font-bold text-slate-400 border-b pb-2 dark:border-slate-700 flex justify-between">
-                <span>التكلفة التقديرية المبدئية (Quotation Estimate)</span>
-                <Sparkles className="w-4 h-4 text-amber-500" />
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-600 dark:text-slate-300">نوع الخدمة: {createdQuotation?.shootType}</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{createdQuotation?.hoursCount} ساعات تصوير</span>
-              </div>
-
-              <div className="flex justify-between items-center text-lg font-black text-emerald-600 dark:text-emerald-400 pt-2 border-t dark:border-slate-700">
-                <span>الإجمالي التقديري:</span>
-                <span>{createdQuotation?.estimatedCost.toLocaleString()} ريال</span>
-              </div>
-
-              <p className="text-[11px] text-slate-400">
-                * ملاحظة: هذا العرض يعتبر تقديرياً مبدئياً ولا يعتبر فاتورة نهائية حتى يتم اعتماده وتأكيده من قِبل إدارة LensFlow.
-              </p>
+              <p className="text-xs text-slate-500 mt-1">رقم الطلب: <span className="font-mono font-bold text-brand-600">{createdQuotation?.id}</span></p>
+              <p className="text-xs text-slate-500 mt-2">سيتواصل معك فريق LensFlow قريباً لتأكيد الطلب وتحديد التكلفة النهائية.</p>
             </div>
 
             <button
@@ -163,21 +118,6 @@ export const PublicClientPortalModal = ({ isOpen, onClose }) => {
         ) : (
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
             
-            {/* Real-time Quotation Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-brand-50 to-blue-50 dark:from-brand-950/60 dark:to-slate-800 border border-brand-200 dark:border-brand-800 flex justify-between items-center">
-              <div className="flex items-center gap-2.5">
-                <Calculator className="w-5 h-5 text-brand-600 dark:text-brand-400" />
-                <div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">الحاسبة التلقائية للتكلفة التقديرية</div>
-                  <div className="text-[10px] text-slate-500">يتغير السعر ديناميكياً مع الساعات، المصورين، والخدمات الإضافية</div>
-                </div>
-              </div>
-
-              <div className="text-left">
-                <div className="text-xs text-slate-500">التكلفة التقديرية:</div>
-                <div className="text-xl font-black text-brand-700 dark:text-brand-300">{estimatedCost.toLocaleString()} SAR</div>
-              </div>
-            </div>
 
             {/* Section 1: Client Data */}
             <div className="space-y-3">
@@ -361,7 +301,7 @@ export const PublicClientPortalModal = ({ isOpen, onClose }) => {
                 className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white text-xs font-black rounded-xl shadow-lg shadow-brand-500/20 transition flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                <span>إرسال الطلب وحساب العرض المبدئي</span>
+                <span>إرسال الطلب</span>
               </button>
             </div>
 
