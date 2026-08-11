@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { X, CheckCircle2, AlertTriangle, Calendar, User, Camera, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react';
 
-export const BookingWizardModal = ({ isOpen, onClose }) => {
+export const BookingWizardModal = ({ isOpen, onClose, onOpenWhatsAppModal }) => {
   const { clients, team, equipment, addBooking, checkClash } = useApp();
 
   const [step, setStep] = useState(1);
@@ -110,13 +110,17 @@ export const BookingWizardModal = ({ isOpen, onClose }) => {
       targetClientId = `cli-${Date.now().toString().slice(-4)}`;
     }
 
-    addBooking({
+    const createdBooking = addBooking({
       ...formData,
       clientId: targetClientId,
       clientName: formData.clientName || 'عميل جديد',
     });
 
     onClose();
+
+    if (onOpenWhatsAppModal && createdBooking) {
+      onOpenWhatsAppModal(createdBooking);
+    }
   };
 
   return (
