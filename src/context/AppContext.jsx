@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { initialSeedData } from '../data/seedData';
 import confetti from 'canvas-confetti';
 import { sendWhatsAppNotification } from '../services/whatsappService';
-import { fetchTeamFromCloud, saveTeamToCloud } from '../services/cloudSyncService';
+import { fetchAppFromCloud, saveAppToCloud } from '../services/cloudSyncService';
 
 const AppContext = createContext();
 
@@ -110,83 +110,78 @@ export const AppProvider = ({ children }) => {
 
   // Persist State Changes
   useEffect(() => localStorage.setItem('lensflow_studio', JSON.stringify(studio)), [studio]);
+  // Helper to compile the entire app state for cloud sync
+  const getFullAppState = () => ({
+    studio, team, companies, clients, bookings, projects,
+    tasks, equipment, invoices, payments, clientRequests, notifications
+  });
+
   // Initial Cloud Sync Mount
   useEffect(() => {
     const initCloudSync = async () => {
-      const cloudTeam = await fetchTeamFromCloud();
-      if (cloudTeam && Array.isArray(cloudTeam) && cloudTeam.length > 0) {
-        setTeam(cloudTeam);
-        localStorage.setItem('lensflow_team', JSON.stringify(cloudTeam));
+      const cloudData = await fetchAppFromCloud();
+      if (cloudData) {
+        if (cloudData.team) setTeam(cloudData.team);
+        if (cloudData.bookings) setBookings(cloudData.bookings);
+        if (cloudData.tasks) setTasks(cloudData.tasks);
+        if (cloudData.projects) setProjects(cloudData.projects);
+        if (cloudData.clients) setClients(cloudData.clients);
+        if (cloudData.equipment) setEquipment(cloudData.equipment);
+        if (cloudData.invoices) setInvoices(cloudData.invoices);
+        if (cloudData.companies) setCompanies(cloudData.companies);
+        if (cloudData.payments) setPayments(cloudData.payments);
+        if (cloudData.clientRequests) setClientRequests(cloudData.clientRequests);
+        if (cloudData.notifications) setNotifications(cloudData.notifications);
+        if (cloudData.studio) setStudio(cloudData.studio);
+        
+        // Also update local storage for all
+        Object.keys(cloudData).forEach(key => {
+          localStorage.setItem(`lensflow_${key}`, JSON.stringify(cloudData[key]));
+        });
       } else {
         // Seed cloud if empty or fails
-        await saveTeamToCloud(team);
+        await saveAppToCloud(getFullAppState());
       }
       setIsCloudLoaded(true);
     };
     initCloudSync();
   }, []);
 
+  // Main sync trigger - watch all data collections to persist changes
   useEffect(() => {
     if (!isCloudLoaded) return; // Prevent overwriting cloud with initial state
+    
+    // Save to local storage
     localStorage.setItem('lensflow_team', JSON.stringify(team));
-    saveTeamToCloud(team); // Persist live update to Cloud
-    if (typeof window !== 'undefined' && window.BroadcastChannel) {
-      try {
-        const bc = new BroadcastChannel('lensflow_live_sync_channel');
-        bc.postMessage({ type: 'team_updated', timestamp: Date.now() });
-        bc.close();
-      } catch (err) {
-        console.warn('Broadcast channel error:', err);
-      }
-    }
-  }, [team]);
-
-  useEffect(() => {
-    localStorage.setItem('lensflow_tasks', JSON.stringify(tasks));
-    if (typeof window !== 'undefined' && window.BroadcastChannel) {
-      try {
-        const bc = new BroadcastChannel('lensflow_live_sync_channel');
-        bc.postMessage({ type: 'tasks_updated', timestamp: Date.now() });
-        bc.close();
-      } catch (err) {
-        console.warn('Broadcast channel error:', err);
-      }
-    }
-  }, [tasks]);
-
-  useEffect(() => {
     localStorage.setItem('lensflow_bookings', JSON.stringify(bookings));
-    if (typeof window !== 'undefined' && window.BroadcastChannel) {
-      try {
-        const bc = new BroadcastChannel('lensflow_live_sync_channel');
-        bc.postMessage({ type: 'bookings_updated', timestamp: Date.now() });
-        bc.close();
-      } catch (err) {
-        console.warn('Broadcast channel error:', err);
-      }
-    }
-  }, [bookings]);
-
-  useEffect(() => {
+    localStorage.setItem('lensflow_tasks', JSON.stringify(tasks));
     localStorage.setItem('lensflow_projects', JSON.stringify(projects));
+    localStorage.setItem('lensflow_clients', JSON.stringify(clients));
+    localStorage.setItem('lensflow_equipment', JSON.stringify(equipment));
+    localStorage.setItem('lensflow_invoices', JSON.stringify(invoices));
+    localStorage.setItem('lensflow_companies', JSON.stringify(companies));
+    localStorage.setItem('lensflow_payments', JSON.stringify(payments));
+    localStorage.setItem('lensflow_clientRequests', JSON.stringify(clientRequests));
+    localStorage.setItem('lensflow_notifications', JSON.stringify(notifications));
+    localStorage.setItem('lensflow_studio', JSON.stringify(studio));
+
+    // Save to Cloud
+    saveAppToCloud(getFullAppState());
+
     if (typeof window !== 'undefined' && window.BroadcastChannel) {
       try {
         const bc = new BroadcastChannel('lensflow_live_sync_channel');
-        bc.postMessage({ type: 'projects_updated', timestamp: Date.now() });
+        bc.postMessage({ type: 'app_updated', timestamp: Date.now() });
         bc.close();
       } catch (err) {
         console.warn('Broadcast channel error:', err);
       }
     }
-  }, [projects]);
+  }, [team, bookings, tasks, projects, clients, equipment, invoices, companies, payments, clientRequests, notifications, studio]);
 
-  useEffect(() => localStorage.setItem('lensflow_companies', JSON.stringify(companies)), [companies]);
-  useEffect(() => localStorage.setItem('lensflow_clients', JSON.stringify(clients)), [clients]);
-  useEffect(() => localStorage.setItem('lensflow_equipment', JSON.stringify(equipment)), [equipment]);
-  useEffect(() => localStorage.setItem('lensflow_invoices', JSON.stringify(invoices)), [invoices]);
-  useEffect(() => localStorage.setItem('lensflow_payments', JSON.stringify(payments)), [payments]);
-  useEffect(() => localStorage.setItem('lensflow_client_requests', JSON.stringify(clientRequests)), [clientRequests]);
-  useEffect(() => localStorage.setItem('lensflow_notifications', JSON.stringify(notifications)), [notifications]);
+
+
+
 
   // LIGHTNING-FAST INSTANT LIVE REAL-TIME SYNC ENGINE (BroadcastChannel + Storage + Cloud Sync Heartbeat)
   useEffect(() => {
@@ -219,17 +214,27 @@ export const AppProvider = ({ children }) => {
       }
     };
 
-    const syncCloudTeam = async () => {
+    const syncCloudData = async () => {
       try {
-        const cloudTeam = await fetchTeamFromCloud();
-        if (cloudTeam && Array.isArray(cloudTeam) && cloudTeam.length > 0) {
-          const localTeamStr = localStorage.getItem('lensflow_team');
-          const cloudTeamStr = JSON.stringify(cloudTeam);
-          if (localTeamStr !== cloudTeamStr) {
-            setTeam(cloudTeam);
-            localStorage.setItem('lensflow_team', cloudTeamStr);
-            window.dispatchEvent(new Event('storage'));
+        const cloudData = await fetchAppFromCloud();
+        if (cloudData) {
+          if (cloudData.team && JSON.stringify(cloudData.team) !== localStorage.getItem('lensflow_team')) {
+            setTeam(cloudData.team);
+            localStorage.setItem('lensflow_team', JSON.stringify(cloudData.team));
           }
+          if (cloudData.bookings && JSON.stringify(cloudData.bookings) !== localStorage.getItem('lensflow_bookings')) {
+            setBookings(cloudData.bookings);
+            localStorage.setItem('lensflow_bookings', JSON.stringify(cloudData.bookings));
+          }
+          if (cloudData.tasks && JSON.stringify(cloudData.tasks) !== localStorage.getItem('lensflow_tasks')) {
+            setTasks(cloudData.tasks);
+            localStorage.setItem('lensflow_tasks', JSON.stringify(cloudData.tasks));
+          }
+          if (cloudData.projects && JSON.stringify(cloudData.projects) !== localStorage.getItem('lensflow_projects')) {
+            setProjects(cloudData.projects);
+            localStorage.setItem('lensflow_projects', JSON.stringify(cloudData.projects));
+          }
+          // We can also sync other collections similarly, but these 4 are the most updated dynamically
         }
       } catch (err) {
         console.warn('Silent cloud sync update check failed:', err);
@@ -255,7 +260,7 @@ export const AppProvider = ({ children }) => {
 
     // 3. Fast 1.5s Background Heartbeat Pulse for Tabs, and 3s Cloud Poll
     const localIntervalId = setInterval(syncAllStatesFromStorage, 1500);
-    const cloudIntervalId = setInterval(syncCloudTeam, 3000);
+    const cloudIntervalId = setInterval(syncCloudData, 3000);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
